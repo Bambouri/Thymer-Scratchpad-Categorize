@@ -1,0 +1,88 @@
+{
+	"ver": 1,
+	"name": "Scratchpad",
+	"icon": "ti-notebook",
+	"home": false,
+	"page_field_ids": [],
+	"item_name": "Scratch",
+	"description": "Quick scratchpad for temporary notes",
+	"show_sidebar_items": false,
+	"show_cmdpal_items": false,
+	"fields": [
+		{
+			"icon": "ti-abc",
+			"id": "title",
+			"label": "Title",
+			"many": false,
+			"read_only": false,
+			"active": true,
+			"type": "text"
+		},
+		{
+			"icon": "ti-clock-edit",
+			"id": "updated_at",
+			"label": "Modified",
+			"many": false,
+			"read_only": true,
+			"active": true,
+			"type": "datetime"
+		},
+		{
+			"icon": "ti-clock-plus",
+			"id": "created_at",
+			"label": "Created",
+			"many": false,
+			"read_only": true,
+			"active": true,
+			"type": "datetime"
+		},
+		{
+			"icon": "ti-align-left",
+			"id": "icon",
+			"label": "Icon",
+			"many": false,
+			"read_only": false,
+			"active": true,
+			"type": "text"
+		},
+		{
+			"icon": "ti-photo",
+			"id": "banner",
+			"label": "Banner",
+			"many": false,
+			"read_only": false,
+			"active": true,
+			"type": "banner"
+		}
+	],
+	"sidebar_record_sort_dir": "desc",
+	"sidebar_record_sort_field_id": "updated_at",
+	"managed": {
+		"fields": false,
+		"views": false,
+		"sidebar": false
+	},
+	"custom": {
+		"anthropic_api_key": "YOUR-API-KEY-HERE",
+		"target_collection": "HQ"
+	},
+	"views": [
+		{
+			"id": "VG48ZMVN6MDFB34",
+			"shown": true,
+			"icon": "",
+			"label": "Scratchpad",
+			"description": "",
+			"field_ids": [
+				"title"
+			],
+			"type": "record",
+			"read_only": false,
+			"group_by_field_id": null,
+			"sort_dir": "desc",
+			"sort_field_id": "updated_at",
+			"opts": {},
+			"single_record_guid": "18XK1HGGMRVSR7V374XF67GN1Y"
+		}
+	]
+}
