@@ -1,0 +1,241 @@
+class Plugin extends CollectionPlugin {
+
+    onLoad() {
+        const config = this.getConfiguration();
+        this.apiKey = config.custom?.anthropic_api_key || "";
+        this.targetCollection = config.custom?.target_collection || "HQ";
+
+        this.ui.addCommandPaletteCommand({
+            id: "save-to-hq",
+            label: "Save to HQ",
+            icon: "ti-send",
+            onSelected: () => this.saveToHQ()
+        });
+
+        console.log("Scratchpad plugin loaded!");
+    }
+
+    async saveToHQ() {
+        const panel = this.ui.getActivePanel();
+        if (!panel) {
+            this.ui.addToaster({
+                title: "Error",
+                message: "No active panel found",
+                dismissible: true,
+                autoDestroyTime: 3000
+            });
+            return;
+        }
+
+        const record = panel.getActiveRecord();
+        if (!record) {
+            this.ui.addToaster({
+                title: "Error",
+                message: "No active scratch found",
+                dismissible: true,
+                autoDestroyTime: 3000
+            });
+            return;
+        }
+
+        // Get the note content
+        const lineItems = await record.getLineItems();
+        let noteContent = "";
+        
+        for (const item of lineItems) {
+            if (item.segments) {
+                for (const seg of item.segments) {
+                    if (seg.text) {
+                        noteContent += seg.text + " ";
+                    }
+                }
+            }
+            noteContent += "\n";
+        }
+        
+        noteContent = noteContent.trim();
+        
+        if (!noteContent) {
+            this.ui.addToaster({
+                title: "Error",
+                message: "Scratchpad is empty",
+                dismissible: true,
+                autoDestroyTime: 3000
+            });
+            return;
+        }
+
+        this.ui.addToaster({
+            title: "Processing...",
+            message: "Sending to AI",
+            dismissible: true,
+            autoDestroyTime: 2000
+        });
+
+        await this.processAndSave(record, noteContent);
+    }
+
+    async processAndSave(record, noteContent) {
+        if (!this.apiKey) {
+            this.ui.addToaster({
+                title: "Error",
+                message: "No API key configured",
+                dismissible: true,
+                autoDestroyTime: 3000
+            });
+            return;
+        }
+
+        // Find the target collection (HQ)
+        const collections = await this.data.getAllCollections();
+        const targetColl = collections.find(c => c.getName() === this.targetCollection);
+        
+        if (!targetColl) {
+            this.ui.addToaster({
+                title: "Error",
+                message: `Collection "${this.targetCollection}" not found`,
+                dismissible: true,
+                autoDestroyTime: 3000
+            });
+            return;
+        }
+
+        // Get Area and Category options from HQ config
+        const targetConfig = targetColl.getConfiguration();
+        const areaField = targetConfig.fields.find(f => f.label === "Area");
+        const categoryField = targetConfig.fields.find(f => f.label === "Category");
+        
+        const areaOptions = areaField?.choices?.map(c => c.label) || ["Business", "Philosophy", "Life", "Other"];
+        const categoryOptions = categoryField?.choices?.map(c => c.label) || ["Sales", "Marketing", "Product", "Operations", "Ideas", "Neuro Linguistic Programming", "Other"];
+
+        try {
+            const response = await fetch("https://api.anthropic.com/v1/messages", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "x-api-key": this.apiKey,
+                    "anthropic-version": "2023-06-01",
+                    "anthropic-dangerous-direct-browser-access": "true"
+                },
+                body: JSON.stringify({
+                    model: "claude-sonnet-4-5-20250929",
+                    max_tokens: 1500,
+                    messages: [{
+                        role: "user",
+                        content: `I have a scratchpad note that needs processing before saving. Please do the following:
+
+1. AREA: Pick the best Area from these options: ${areaOptions.join(", ")}
+
+2. CATEGORY: Pick the best Category from these options: ${categoryOptions.join(", ")}
+
+3. TITLE: Generate a title (max 7 words) that would help someone quickly understand what this note is about when scanning a list. Be descriptive and specific to the actual content.
+
+4. DESCRIPTION: Write a 1-3 sentence summary that will help me understand this note weeks from now. Include the main point and any context if relevant. Keep it concise.
+
+5. CLEANED NOTE: Clean up this note by fixing typos, grammar, punctuation, and formatting. Keep my voice and style. Don't add or remove ideas. Use bullets for readability when it makes sense to and never use em dashes. DO NOT change too much of the text, just enough to make it more readable.
+
+Here is the note:
+"${noteContent}"
+
+Respond in this exact JSON format only, no other text:
+{"area": "AreaName", "category": "CategoryName", "title": "Your Title Here", "description": "Your description here.", "cleanedNote": "The cleaned up version of the note."}`
+                    }]
+                })
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error("API error:", errorText);
+                throw new Error(`API error: ${response.status}`);
+            }
+
+            const data = await response.json();
+            let content = data.content[0].text;
+            
+            // Strip markdown code blocks if present
+            content = content.trim();
+            if (content.startsWith("```json")) {
+                content = content.slice(7);
+            }
+            if (content.startsWith("```")) {
+                content = content.slice(3);
+            }
+            if (content.endsWith("```")) {
+                content = content.slice(0, -3);
+            }
+            content = content.trim();
+            
+            const parsed = JSON.parse(content);
+            console.log("Parsed result:", parsed);
+
+            // Create the new doc in HQ
+            const newGuid = targetColl.createRecord(parsed.title);
+            
+            if (!newGuid) {
+                throw new Error("Failed to create record");
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // Get the new record and set properties
+            const allRecords = await targetColl.getAllRecords();
+            const newRecord = allRecords.find(r => r.guid === newGuid);
+            
+            if (newRecord) {
+                // Set Description
+                const descProp = newRecord.prop("Description");
+                if (descProp) {
+                    descProp.set(parsed.description);
+                }
+
+                // Set Area
+                const areaProp = newRecord.prop("Area");
+                if (areaProp && parsed.area) {
+                    const areaChoice = areaField?.choices?.find(c => c.label === parsed.area);
+                    if (areaChoice) {
+                        areaProp.set(areaChoice.id);
+                    }
+                }
+
+                // Set Category
+                const categoryProp = newRecord.prop("Category");
+                if (categoryProp && parsed.category) {
+                    const categoryChoice = categoryField?.choices?.find(c => c.label === parsed.category);
+                    if (categoryChoice) {
+                        categoryProp.set(categoryChoice.id);
+                    }
+                }
+
+                // Add the cleaned content to the body
+                const lineItem = await newRecord.createLineItem(null, null, "text");
+                if (lineItem) {
+                    const segment = { type: "text", text: parsed.cleanedNote };
+                    await lineItem.setSegments([segment]);
+                }
+            }
+
+            // Clear the scratchpad content
+            const scratchLineItems = await record.getLineItems();
+            for (const item of scratchLineItems) {
+                await item.delete();
+            }
+
+            this.ui.addToaster({
+                title: "Saved to HQ!",
+                message: `"${parsed.title}" → ${parsed.area} / ${parsed.category}`,
+                dismissible: true,
+                autoDestroyTime: 3000
+            });
+
+        } catch (e) {
+            console.error("Error:", e);
+            this.ui.addToaster({
+                title: "Error",
+                message: "Failed to save: " + e.message,
+                dismissible: true,
+                autoDestroyTime: 3000
+            });
+        }
+    }
+
+}
