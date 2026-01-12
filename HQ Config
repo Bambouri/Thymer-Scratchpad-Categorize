@@ -1,0 +1,201 @@
+{
+	"ver": 1,
+	"name": "HQ",
+	"icon": "ti-atom",
+	"home": false,
+	"page_field_ids": [
+		"FAPD6MSKXNX3RY3",
+		"FN4P6490VW30P0G",
+		"FKQJFSZYS813PC4"
+	],
+	"item_name": "Doc",
+	"description": "A place for everything I am working on.",
+	"show_sidebar_items": false,
+	"show_cmdpal_items": false,
+	"fields": [
+		{
+			"icon": "ti-abc",
+			"id": "title",
+			"label": "Title",
+			"many": false,
+			"read_only": false,
+			"active": true,
+			"type": "text"
+		},
+		{
+			"icon": "ti-clock-edit",
+			"id": "updated_at",
+			"label": "Modified",
+			"many": false,
+			"read_only": true,
+			"active": true,
+			"type": "datetime"
+		},
+		{
+			"icon": "ti-clock-plus",
+			"id": "created_at",
+			"label": "Created",
+			"many": false,
+			"read_only": true,
+			"active": true,
+			"type": "datetime"
+		},
+		{
+			"icon": "ti-photo",
+			"id": "banner",
+			"label": "Banner",
+			"many": false,
+			"read_only": false,
+			"active": true,
+			"type": "banner"
+		},
+		{
+			"id": "FAPD6MSKXNX3RY3",
+			"active": true,
+			"icon": "ti-align-left",
+			"label": "Description",
+			"many": false,
+			"type": "text",
+			"read_only": false
+		},
+		{
+			"id": "FN4P6490VW30P0G",
+			"active": true,
+			"icon": "ti-map",
+			"label": "Area",
+			"many": false,
+			"type": "choice",
+			"read_only": false,
+			"choices": [
+				{
+					"active": true,
+					"icon": "",
+					"id": "02Z5TT17GFDPP2T",
+					"label": "Business",
+					"color": "0"
+				},
+				{
+					"active": true,
+					"icon": "",
+					"id": "0FKRBAW3DT7WTTW",
+					"label": "Philosophy",
+					"color": "4"
+				},
+				{
+					"active": true,
+					"icon": "",
+					"id": "0FM3YJ4M522KVAA",
+					"label": "Life",
+					"color": "8"
+				},
+				{
+					"active": true,
+					"icon": "",
+					"id": "02KNX013D7K71NH",
+					"label": "Other",
+					"color": "12"
+				}
+			]
+		},
+		{
+			"id": "FKQJFSZYS813PC4",
+			"active": true,
+			"icon": "ti-feather",
+			"label": "Category",
+			"many": false,
+			"type": "choice",
+			"read_only": false,
+			"choices": [
+				{
+					"active": true,
+					"icon": "",
+					"id": "04R5EQTTE4M3Q55",
+					"label": "Sales",
+					"color": "0"
+				},
+				{
+					"active": true,
+					"icon": "",
+					"id": "097EPD81TDZR8S9",
+					"label": "Marketing",
+					"color": "4"
+				},
+				{
+					"active": true,
+					"icon": "",
+					"id": "02T1YNCDHVA2P5M",
+					"label": "Product",
+					"color": "8"
+				},
+				{
+					"active": true,
+					"icon": "",
+					"id": "04D6ZZKJHH7B352",
+					"label": "Operations",
+					"color": "12"
+				},
+				{
+					"active": true,
+					"icon": "",
+					"id": "0J4HX9TBBX0H94Y",
+					"label": "Ideas",
+					"color": "1"
+				},
+				{
+					"active": true,
+					"icon": "",
+					"id": "09MP3ZF65GNMTF3",
+					"label": "Neuro Linguistic Programming",
+					"color": "5"
+				},
+				{
+					"active": true,
+					"icon": "",
+					"id": "0126AZFNKAMCX7Q",
+					"label": "Other",
+					"color": "9"
+				}
+			]
+		},
+		{
+			"icon": "ti-align-left",
+			"id": "icon",
+			"label": "Icon",
+			"many": false,
+			"read_only": false,
+			"active": true,
+			"type": "text"
+		}
+	],
+	"sidebar_record_sort_dir": "desc",
+	"sidebar_record_sort_field_id": "updated_at",
+	"managed": {
+		"fields": false,
+		"views": false,
+		"sidebar": false
+	},
+	"custom": {
+		"anthropic_api_key": "YOUR-API-KEY-HERE"
+	},
+	"views": [
+		{
+			"id": "table",
+			"type": "table",
+			"icon": "ti-table",
+			"label": "All Docs",
+			"description": "",
+			"read_only": false,
+			"shown": true,
+			"field_ids": [
+				"title",
+				"updated_at",
+				"FAPD6MSKXNX3RY3",
+				"FN4P6490VW30P0G",
+				"FKQJFSZYS813PC4"
+			],
+			"sort_dir": "desc",
+			"sort_field_id": "updated_at",
+			"group_by_field_id": null
+		}
+	]
+}
