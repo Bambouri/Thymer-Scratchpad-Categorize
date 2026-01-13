@@ -72,10 +72,55 @@ class Plugin extends CollectionPlugin {
             autoDestroyTime: 2000
         });
 
-        await this.processAndSave(record, noteContent, lineItems);
+        await this.processAndSave(record, noteContent);
     }
 
-    async processAndSave(record, noteContent, originalLineItems) {
+    async clearScratchpad(record) {
+        // Keep clearing until empty
+        let attempts = 0;
+        const maxAttempts = 20;
+        
+        while (attempts < maxAttempts) {
+            // Always get fresh list
+            const items = await record.getLineItems();
+            
+            if (!items || items.length === 0) {
+                console.log("Scratchpad cleared successfully");
+                break;
+            }
+            
+            console.log(`Clearing attempt ${attempts + 1}, items remaining: ${items.length}`);
+            
+            // Delete one at a time, starting from the end
+            for (let i = items.length - 1; i >= 0; i--) {
+                try {
+                    await items[i].delete();
+                } catch (e) {
+                    console.log("Delete failed for item", i, e);
+                }
+            }
+            
+            attempts++;
+            
+            // Small delay before checking again
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
+        // Final check - if anything remains, clear their content
+        const remaining = await record.getLineItems();
+        if (remaining && remaining.length > 0) {
+            console.log(`${remaining.length} items still remain, clearing content`);
+            for (const item of remaining) {
+                try {
+                    await item.setSegments([{ type: "text", text: "" }]);
+                } catch (e) {
+                    console.log("Clear content failed", e);
+                }
+            }
+        }
+    }
+
+    async processAndSave(record, noteContent) {
         if (!this.apiKey) {
             this.ui.addToaster({
                 title: "Error",
@@ -264,18 +309,18 @@ Make sure to escape any special characters in the cleanedNote field (use \\n for
                 }
             }
 
-            // Clear scratchpad: set first line item to empty, delete the rest
-            if (originalLineItems.length > 0) {
-                // Clear the first line item
-                await originalLineItems[0].setSegments([{ type: "text", text: "" }]);
-                
-                // Delete all other line items (in parallel for speed)
-                const deletePromises = originalLineItems.slice(1).map(item => item.delete());
-                await Promise.all(deletePromises);
-            }
+            // Clear the scratchpad - show progress
+            this.ui.addToaster({
+                title: "Saved!",
+                message: "Clearing scratchpad...",
+                dismissible: true,
+                autoDestroyTime: 2000
+            });
+
+            await this.clearScratchpad(record);
 
             this.ui.addToaster({
-                title: "Saved to HQ!",
+                title: "Done!",
                 message: `"${parsed.title}" → ${parsed.area} / ${parsed.category}`,
                 dismissible: true,
                 autoDestroyTime: 3000
