@@ -72,10 +72,10 @@ class Plugin extends CollectionPlugin {
             autoDestroyTime: 2000
         });
 
-        await this.processAndSave(record, noteContent);
+        await this.processAndSave(record, noteContent, lineItems);
     }
 
-    async processAndSave(record, noteContent) {
+    async processAndSave(record, noteContent, originalLineItems) {
         if (!this.apiKey) {
             this.ui.addToaster({
                 title: "Error",
@@ -119,7 +119,7 @@ class Plugin extends CollectionPlugin {
                 },
                 body: JSON.stringify({
                     model: "claude-sonnet-4-5-20250929",
-                    max_tokens: 1500,
+                    max_tokens: 4000,
                     messages: [{
                         role: "user",
                         content: `I have a scratchpad note that needs processing before saving. Please do the following:
@@ -135,10 +135,14 @@ class Plugin extends CollectionPlugin {
 5. CLEANED NOTE: Clean up this note by fixing typos, grammar, punctuation, and formatting. Keep my voice and style. Don't add or remove ideas. Use bullets for readability when it makes sense to and never use em dashes. DO NOT change too much of the text, just enough to make it more readable.
 
 Here is the note:
-"${noteContent}"
+"""
+${noteContent}
+"""
 
-Respond in this exact JSON format only, no other text:
-{"area": "AreaName", "category": "CategoryName", "title": "Your Title Here", "description": "Your description here.", "cleanedNote": "The cleaned up version of the note."}`
+IMPORTANT: Respond with ONLY valid JSON. Use this exact format:
+{"area": "AreaName", "category": "CategoryName", "title": "Your Title", "description": "Your description.", "cleanedNote": "The cleaned note."}
+
+Make sure to escape any special characters in the cleanedNote field (use \\n for newlines, \\" for quotes).`
                     }]
                 })
             });
@@ -151,6 +155,8 @@ Respond in this exact JSON format only, no other text:
 
             const data = await response.json();
             let content = data.content[0].text;
+            
+            console.log("Raw LLM response:", content);
             
             // Strip markdown code blocks if present
             content = content.trim();
@@ -165,7 +171,51 @@ Respond in this exact JSON format only, no other text:
             }
             content = content.trim();
             
-            const parsed = JSON.parse(content);
+            // Try to parse, with fallback extraction if it fails
+            let parsed;
+            try {
+                parsed = JSON.parse(content);
+            } catch (jsonError) {
+                console.error("JSON parse failed, attempting extraction:", jsonError);
+                
+                const areaMatch = content.match(/"area"\s*:\s*"([^"]+)"/);
+                const categoryMatch = content.match(/"category"\s*:\s*"([^"]+)"/);
+                const titleMatch = content.match(/"title"\s*:\s*"([^"]+)"/);
+                const descMatch = content.match(/"description"\s*:\s*"([^"]+)"/);
+                
+                let cleanedNote = noteContent;
+                const cleanedNoteStart = content.indexOf('"cleanedNote"');
+                if (cleanedNoteStart !== -1) {
+                    const colonPos = content.indexOf(':', cleanedNoteStart);
+                    const quoteStart = content.indexOf('"', colonPos);
+                    if (quoteStart !== -1) {
+                        let quoteEnd = -1;
+                        let i = quoteStart + 1;
+                        while (i < content.length) {
+                            if (content[i] === '"' && content[i-1] !== '\\') {
+                                quoteEnd = i;
+                                break;
+                            }
+                            i++;
+                        }
+                        if (quoteEnd !== -1) {
+                            cleanedNote = content.slice(quoteStart + 1, quoteEnd);
+                            cleanedNote = cleanedNote.replace(/\\n/g, '\n').replace(/\\"/g, '"');
+                        }
+                    }
+                }
+                
+                parsed = {
+                    area: areaMatch ? areaMatch[1] : "Other",
+                    category: categoryMatch ? categoryMatch[1] : "Other",
+                    title: titleMatch ? titleMatch[1] : "Untitled Note",
+                    description: descMatch ? descMatch[1] : "",
+                    cleanedNote: cleanedNote
+                };
+                
+                console.log("Extracted via regex:", parsed);
+            }
+            
             console.log("Parsed result:", parsed);
 
             // Create the new doc in HQ
@@ -214,10 +264,14 @@ Respond in this exact JSON format only, no other text:
                 }
             }
 
-            // Clear the scratchpad content
-            const scratchLineItems = await record.getLineItems();
-            for (const item of scratchLineItems) {
-                await item.delete();
+            // Clear scratchpad: set first line item to empty, delete the rest
+            if (originalLineItems.length > 0) {
+                // Clear the first line item
+                await originalLineItems[0].setSegments([{ type: "text", text: "" }]);
+                
+                // Delete all other line items (in parallel for speed)
+                const deletePromises = originalLineItems.slice(1).map(item => item.delete());
+                await Promise.all(deletePromises);
             }
 
             this.ui.addToaster({
